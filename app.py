@@ -28,6 +28,8 @@ def init_db():
         ''')
         conn.commit()
         _migrate_legacy_menu(conn)
+        _migrate_legacy_employees(conn)
+        _migrate_legacy_orders(conn)
         conn.execute('''
             CREATE TABLE IF NOT EXISTS menu (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -126,6 +128,65 @@ def _migrate_legacy_menu(conn):
 
     conn.execute('DROP TABLE menu')
     conn.execute('ALTER TABLE menu_new RENAME TO menu')
+    conn.commit()
+
+
+def _migrate_legacy_employees(conn):
+    columns = [row[1] for row in conn.execute("PRAGMA table_info(employees)")]
+    if not columns:
+        return
+    if 'id' in columns:
+        return
+    if 'employee_id' not in columns:
+        return
+
+    rows = conn.execute('SELECT employee_id, name, role FROM employees').fetchall()
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS employees_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            role TEXT NOT NULL
+        )
+    ''')
+    for row in rows:
+        conn.execute(
+            'INSERT INTO employees_new (id, name, role) VALUES (?, ?, ?)',
+            (row['employee_id'], row['name'], row['role'])
+        )
+    conn.execute('DROP TABLE employees')
+    conn.execute('ALTER TABLE employees_new RENAME TO employees')
+    conn.commit()
+
+
+def _migrate_legacy_orders(conn):
+    columns = [row[1] for row in conn.execute("PRAGMA table_info(orders)")]
+    if not columns:
+        return
+    if 'id' in columns and 'customer_name' in columns:
+        return
+    if 'order_id' not in columns:
+        return
+
+    rows = conn.execute('SELECT order_id, customer_id, employee_id, order_date FROM orders').fetchall()
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS orders_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            employee_id INTEGER,
+            customer_name TEXT,
+            order_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            total REAL DEFAULT 0,
+            status TEXT DEFAULT 'pending',
+            FOREIGN KEY(employee_id) REFERENCES employees(id)
+        )
+    ''')
+    for row in rows:
+        customer_name = f"ลูกค้า #{row['customer_id']}" if row['customer_id'] is not None else ''
+        conn.execute(
+            'INSERT INTO orders_new (id, employee_id, customer_name, order_date, total, status) VALUES (?, ?, ?, ?, ?, ?)',
+            (row['order_id'], row['employee_id'], customer_name, row['order_date'], 0.0, 'pending')
+        )
+    conn.execute('DROP TABLE orders')
+    conn.execute('ALTER TABLE orders_new RENAME TO orders')
     conn.commit()
 
 
@@ -266,6 +327,7 @@ def delete_menu(id):
 
 @app.route('/employees')
 def employees():
+    init_db()
     conn = get_db()
     employees = conn.execute('SELECT * FROM employees ORDER BY name').fetchall()
     conn.close()
@@ -274,6 +336,7 @@ def employees():
 
 @app.route('/add_employee', methods=['GET', 'POST'])
 def add_employee():
+    init_db()
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
         role = request.form.get('role', '').strip()
@@ -288,6 +351,7 @@ def add_employee():
 
 @app.route('/edit_employee/<int:id>', methods=['GET', 'POST'])
 def edit_employee(id):
+    init_db()
     conn = get_db()
     employee = conn.execute('SELECT * FROM employees WHERE id = ?', (id,)).fetchone()
     if request.method == 'POST':
@@ -304,6 +368,7 @@ def edit_employee(id):
 
 @app.route('/delete_employee/<int:id>')
 def delete_employee(id):
+    init_db()
     conn = get_db()
     conn.execute('DELETE FROM employees WHERE id = ?', (id,))
     conn.commit()
@@ -313,6 +378,7 @@ def delete_employee(id):
 
 @app.route('/orders')
 def orders():
+    init_db()
     conn = get_db()
     orders = conn.execute('''
         SELECT orders.*, employees.name AS employee_name
@@ -326,6 +392,7 @@ def orders():
 
 @app.route('/add_order', methods=['GET', 'POST'])
 def add_order():
+    init_db()
     conn = get_db()
     employees = conn.execute('SELECT * FROM employees ORDER BY name').fetchall()
     if request.method == 'POST':
@@ -346,6 +413,7 @@ def add_order():
 
 @app.route('/delete_order/<int:id>')
 def delete_order(id):
+    init_db()
     conn = get_db()
     conn.execute('DELETE FROM orders WHERE id = ?', (id,))
     conn.commit()
