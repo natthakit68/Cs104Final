@@ -39,6 +39,25 @@ def init_db():
                 FOREIGN KEY(category_id) REFERENCES categories(id)
             )
         ''')
+        # เพิ่มตารางหลังร้าน
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS employees (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                role TEXT NOT NULL
+            )
+        ''')
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS orders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                employee_id INTEGER,
+                customer_name TEXT,
+                order_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                total REAL DEFAULT 0,
+                status TEXT DEFAULT 'pending',
+                FOREIGN KEY(employee_id) REFERENCES employees(id)
+            )
+        ''')
         conn.commit()
 
 
