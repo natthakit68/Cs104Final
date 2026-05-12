@@ -52,11 +52,14 @@ def init_db():
         conn.execute('''
             CREATE TABLE IF NOT EXISTS orders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                menu_id INTEGER,
                 employee_id INTEGER,
                 customer_name TEXT,
+                quantity INTEGER DEFAULT 1,
                 order_date DATETIME DEFAULT CURRENT_TIMESTAMP,
                 total REAL DEFAULT 0,
                 status TEXT DEFAULT 'pending',
+                FOREIGN KEY(menu_id) REFERENCES menu(id),
                 FOREIGN KEY(employee_id) REFERENCES employees(id)
             )
         ''')
@@ -163,6 +166,11 @@ def _migrate_legacy_orders(conn):
     if not columns:
         return
     if 'id' in columns and 'customer_name' in columns:
+        if 'menu_id' not in columns:
+            conn.execute('ALTER TABLE orders ADD COLUMN menu_id INTEGER')
+        if 'quantity' not in columns:
+            conn.execute('ALTER TABLE orders ADD COLUMN quantity INTEGER DEFAULT 1')
+        conn.commit()
         return
     if 'order_id' not in columns:
         return
@@ -171,19 +179,22 @@ def _migrate_legacy_orders(conn):
     conn.execute('''
         CREATE TABLE IF NOT EXISTS orders_new (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            menu_id INTEGER,
             employee_id INTEGER,
             customer_name TEXT,
+            quantity INTEGER DEFAULT 1,
             order_date DATETIME DEFAULT CURRENT_TIMESTAMP,
             total REAL DEFAULT 0,
             status TEXT DEFAULT 'pending',
+            FOREIGN KEY(menu_id) REFERENCES menu(id),
             FOREIGN KEY(employee_id) REFERENCES employees(id)
         )
     ''')
     for row in rows:
         customer_name = f"ลูกค้า #{row['customer_id']}" if row['customer_id'] is not None else ''
         conn.execute(
-            'INSERT INTO orders_new (id, employee_id, customer_name, order_date, total, status) VALUES (?, ?, ?, ?, ?, ?)',
-            (row['order_id'], row['employee_id'], customer_name, row['order_date'], 0.0, 'pending')
+            'INSERT INTO orders_new (id, menu_id, employee_id, customer_name, quantity, order_date, total, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            (row['order_id'], None, row['employee_id'], customer_name, 1, row['order_date'], 0.0, 'pending')
         )
     conn.execute('DROP TABLE orders')
     conn.execute('ALTER TABLE orders_new RENAME TO orders')
@@ -381,9 +392,10 @@ def orders():
     init_db()
     conn = get_db()
     orders = conn.execute('''
-        SELECT orders.*, employees.name AS employee_name
+        SELECT orders.*, employees.name AS employee_name, menu.name AS menu_name
         FROM orders
         LEFT JOIN employees ON orders.employee_id = employees.id
+        LEFT JOIN menu ON orders.menu_id = menu.id
         ORDER BY orders.order_date DESC
     ''').fetchall()
     conn.close()
@@ -395,20 +407,38 @@ def add_order():
     init_db()
     conn = get_db()
     employees = conn.execute('SELECT * FROM employees ORDER BY name').fetchall()
+    menu_items = conn.execute('SELECT id, name, price FROM menu ORDER BY name').fetchall()
+    selected_menu_id = request.args.get('menu_id')
+    selected_menu = None
+    if selected_menu_id:
+        try:
+            selected_menu_id = int(selected_menu_id)
+            selected_menu = conn.execute('SELECT id, name, price FROM menu WHERE id = ?', (selected_menu_id,)).fetchone()
+        except ValueError:
+            selected_menu_id = None
+            selected_menu = None
     if request.method == 'POST':
         customer_name = request.form.get('customer_name', '').strip()
         employee_id = request.form.get('employee_id')
+        menu_id = request.form.get('menu_id')
+        quantity = request.form.get('quantity', '1').strip() or '1'
         total = request.form.get('total', '0').strip() or '0'
         if customer_name:
+            if menu_id:
+                menu_item = conn.execute('SELECT price FROM menu WHERE id = ?', (menu_id,)).fetchone()
+                if menu_item:
+                    total = float(menu_item['price']) * int(quantity)
+            else:
+                total = float(total)
             conn.execute(
-                'INSERT INTO orders (customer_name, employee_id, total, status) VALUES (?, ?, ?, ?)',
-                (customer_name, employee_id if employee_id else None, float(total), 'pending')
+                'INSERT INTO orders (customer_name, employee_id, menu_id, quantity, total, status) VALUES (?, ?, ?, ?, ?, ?)',
+                (customer_name, employee_id if employee_id else None, menu_id if menu_id else None, int(quantity), float(total), 'pending')
             )
             conn.commit()
             conn.close()
             return redirect(url_for('orders'))
     conn.close()
-    return render_template('index.html', page='add_order', employees=employees)
+    return render_template('index.html', page='add_order', employees=employees, menu_items=menu_items, selected_menu_id=selected_menu_id, selected_menu=selected_menu)
 
 
 @app.route('/delete_order/<int:id>')
