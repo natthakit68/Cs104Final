@@ -1,0 +1,193 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FinalCafe Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-amber-50 text-amber-950">
+    <div class="mx-auto max-w-6xl px-4 py-6">
+        <header class="mb-8 rounded-3xl border border-amber-200 bg-amber-100 p-6 shadow-xl shadow-amber-200/60">
+            <h1 class="text-center text-4xl font-extrabold tracking-tight text-amber-950 sm:text-5xl">FinalCafe Manager</h1>
+            <p class="mt-3 text-center text-base text-amber-700 sm:text-lg">จัดการเมนูและหมวดหมู่ค้าขาย ในธีมกาแฟอบอุ่น รองรับมือถือ</p>
+        </header>
+
+        {% if page == 'home' %}
+            <section class="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h2 class="text-2xl font-semibold text-amber-950">เมนูและหมวดหมู่</h2>
+                    <p class="mt-1 text-sm text-amber-700">ระบบ CRUD สำหรับจัดการสินค้าของ FinalCafe</p>
+                </div>
+                <div class="flex flex-col gap-2 sm:flex-row">
+                    <a href="{{ url_for('add_category') }}" class="inline-flex items-center justify-center rounded-full bg-amber-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-amber-800">เพิ่มหมวดหมู่</a>
+                    <a href="{{ url_for('add_menu') }}" class="inline-flex items-center justify-center rounded-full bg-amber-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-amber-700">เพิ่มสินค้า</a>
+                </div>
+            </section>
+
+            <section class="mb-10">
+                <div class="mb-4 flex items-center justify-between gap-3">
+                    <h3 class="text-xl font-semibold text-amber-950">หมวดหมู่ทั้งหมด</h3>
+                    <span class="text-sm text-amber-600">รวม {{ categories|length }} หมวด</span>
+                </div>
+                <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {% if categories %}
+                        {% for cat in categories %}
+                            <article class="rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm shadow-amber-100 cursor-pointer transition hover:shadow-md hover:shadow-amber-200" onclick="window.location.href='{{ url_for('view_category', category_id=cat.id) }}'">
+                                <div class="flex items-center justify-between gap-3">
+                                    <div>
+                                        <p class="text-lg font-semibold text-amber-900">{{ cat.name }}</p>
+                                        <p class="mt-2 text-sm text-amber-600">ID: {{ cat.id }}</p>
+                                    </div>
+                                    <div class="flex gap-2 text-sm" onclick="event.stopPropagation()">
+                                        <a href="{{ url_for('edit_category', id=cat.id) }}" class="rounded-full bg-amber-200 px-3 py-2 text-amber-900 hover:bg-amber-300">แก้ไข</a>
+                                        <a href="{{ url_for('delete_category', id=cat.id) }}" onclick="return confirm('ลบหมวดหมู่นี้หรือไม่?')" class="rounded-full bg-rose-100 px-3 py-2 text-rose-700 hover:bg-rose-200">ลบ</a>
+                                    </div>
+                                </div>
+                            </article>
+                        {% endfor %}
+                    {% else %}
+                        <div class="rounded-3xl border border-amber-200 bg-amber-50 p-6 text-center text-amber-700">ยังไม่มีหมวดหมู่ในระบบ กรุณาเพิ่มหมวดหมู่ก่อน</div>
+                    {% endif %}
+                </div>
+            </section>
+
+            <section>
+                <div class="mb-4 flex items-center justify-between gap-3">
+                    <h3 class="text-xl font-semibold text-amber-950">รายการสินค้า</h3>
+                    <span class="text-sm text-amber-600">รวม {{ menu|length }} รายการ</span>
+                </div>
+                {% if menu %}
+                    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        {% for item in menu %}
+                            <article class="group overflow-hidden rounded-[2rem] border border-amber-200 bg-amber-50 shadow-lg shadow-amber-100 transition hover:-translate-y-1 hover:shadow-amber-200/80">
+                                <div class="overflow-hidden bg-amber-100">
+                                    {% if item.image_path %}
+                                        <img src="{{ url_for('static', filename=item.image_path) }}" alt="{{ item.name }}" class="h-52 w-full object-cover transition duration-300 group-hover:scale-105" />
+                                    {% else %}
+                                        <div class="flex h-52 items-center justify-center text-amber-600">ไม่มีรูปภาพ</div>
+                                    {% endif %}
+                                </div>
+                                <div class="p-6">
+                                    <div class="mb-4 flex items-center justify-between">
+                                        <span class="rounded-full bg-amber-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-amber-800">{{ item.category_name or 'ไม่มีหมวดหมู่' }}</span>
+                                        <span class="text-sm font-semibold text-amber-900">฿{{ "%.2f"|format(item.price) }}</span>
+                                    </div>
+                                    <h4 class="text-2xl font-bold text-amber-950">{{ item.name }}</h4>
+                                    <p class="mt-3 text-sm leading-6 text-amber-700">{{ item.description or 'ไม่มีคำอธิบาย' }}</p>
+                                    <div class="mt-6 flex flex-wrap gap-2 text-sm">
+                                        <a href="{{ url_for('edit_menu', id=item.id) }}" class="inline-flex rounded-full bg-amber-200 px-4 py-2 text-amber-900 hover:bg-amber-300">แก้ไข</a>
+                                        <a href="{{ url_for('delete_menu', id=item.id) }}" onclick="return confirm('ลบสินค้านี้หรือไม่?')" class="inline-flex rounded-full bg-rose-100 px-4 py-2 text-rose-700 hover:bg-rose-200">ลบ</a>
+                                    </div>
+                                </div>
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="rounded-3xl border border-amber-200 bg-amber-50 p-8 text-center text-amber-700">ยังไม่มีสินค้าจะแสดง ลองเพิ่มสินค้าใหม่</div>
+                {% endif %}
+            </section>
+        {% elif page == 'category' %}
+            <section class="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h2 class="text-2xl font-semibold text-amber-950">หมวด: {{ category.name }}</h2>
+                    <p class="mt-1 text-sm text-amber-700">จำนวนสินค้า: {{ menu|length }} รายการ</p>
+                </div>
+                <div class="flex flex-col gap-2 sm:flex-row">
+                    <a href="{{ url_for('home') }}" class="inline-flex items-center justify-center rounded-full bg-amber-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-amber-700">กลับหน้าหลัก</a>
+                </div>
+            </section>
+
+            <section>
+                {% if menu %}
+                    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        {% for item in menu %}
+                            <article class="group overflow-hidden rounded-[2rem] border border-amber-200 bg-amber-50 shadow-lg shadow-amber-100 transition hover:-translate-y-1 hover:shadow-amber-200/80">
+                                <div class="overflow-hidden bg-amber-100">
+                                    {% if item.image_path %}
+                                        <img src="{{ url_for('static', filename=item.image_path) }}" alt="{{ item.name }}" class="h-52 w-full object-cover transition duration-300 group-hover:scale-105" />
+                                    {% else %}
+                                        <div class="flex h-52 items-center justify-center text-amber-600">ไม่มีรูปภาพ</div>
+                                    {% endif %}
+                                </div>
+                                <div class="p-6">
+                                    <div class="mb-4 flex items-center justify-between">
+                                        <span class="rounded-full bg-amber-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-amber-800">{{ item.category_name or 'ไม่มีหมวดหมู่' }}</span>
+                                        <span class="text-sm font-semibold text-amber-900">฿{{ "%.2f"|format(item.price) }}</span>
+                                    </div>
+                                    <h4 class="text-2xl font-bold text-amber-950">{{ item.name }}</h4>
+                                    <p class="mt-3 text-sm leading-6 text-amber-700">{{ item.description or 'ไม่มีคำอธิบาย' }}</p>
+                                    <div class="mt-6 flex flex-wrap gap-2 text-sm">
+                                        <a href="{{ url_for('edit_menu', id=item.id) }}" class="inline-flex rounded-full bg-amber-200 px-4 py-2 text-amber-900 hover:bg-amber-300">แก้ไข</a>
+                                        <a href="{{ url_for('delete_menu', id=item.id) }}" onclick="return confirm('ลบสินค้านี้หรือไม่?')" class="inline-flex rounded-full bg-rose-100 px-4 py-2 text-rose-700 hover:bg-rose-200">ลบ</a>
+                                    </div>
+                                </div>
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="rounded-3xl border border-amber-200 bg-amber-50 p-8 text-center text-amber-700">ไม่มีสินค้าในหมวดหมู่นี้</div>
+                {% endif %}
+            </section>
+        {% else %}
+            <div class="mx-auto max-w-2xl rounded-3xl border border-amber-200 bg-amber-100 p-8 shadow-xl shadow-amber-200/60">
+                <h2 class="text-3xl font-bold text-amber-950 mb-4">
+                    {% if page == 'add_category' %}เพิ่มหมวดหมู่ใหม่{% elif page == 'edit_category' %}แก้ไขหมวดหมู่{% elif page == 'add_menu' %}เพิ่มสินค้าใหม่{% elif page == 'edit_menu' %}แก้ไขสินค้า{% endif %}
+                </h2>
+                <form method="post" enctype="multipart/form-data" class="space-y-5">
+                    <div class="space-y-2">
+                        <label class="block text-sm font-semibold text-amber-900">ชื่อ</label>
+                        <input type="text" name="name" value="{% if page == 'edit_category' %}{{ category.name }}{% elif page == 'edit_menu' %}{{ menu_item.name }}{% endif %}" required class="w-full rounded-3xl border border-amber-200 bg-white px-4 py-3 text-amber-900 shadow-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200" />
+                    </div>
+
+                    {% if page in ['add_menu', 'edit_menu'] %}
+                        <div class="space-y-2">
+                            <label class="block text-sm font-semibold text-amber-900">คำอธิบาย</label>
+                            <textarea name="description" rows="4" class="w-full rounded-3xl border border-amber-200 bg-white px-4 py-3 text-amber-900 shadow-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200">{% if page == 'edit_menu' %}{{ menu_item.description }}{% endif %}</textarea>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-sm font-semibold text-amber-900">รูปภาพสินค้า</label>
+                            <input type="file" name="image" accept="image/*" class="w-full rounded-3xl border border-amber-200 bg-white px-4 py-3 text-amber-900 shadow-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200" />
+                            <p class="mt-1 text-xs text-amber-600">อัปโหลดไฟล์ใหม่เพื่อแทนที่ภาพปัจจุบัน</p>
+                            {% if page == 'edit_menu' and menu_item.image_path %}
+                                <div class="mt-4 rounded-3xl border border-amber-200 bg-amber-50 p-4">
+                                    <div class="mb-3">
+                                        <p class="text-sm font-medium text-amber-900">ภาพปัจจุบัน</p>
+                                        <img src="{{ url_for('static', filename=menu_item.image_path) }}" alt="{{ menu_item.name }}" class="mt-3 h-40 w-full rounded-3xl object-cover" />
+                                    </div>
+                                    <label class="flex items-center gap-2 text-sm text-amber-700">
+                                        <input type="checkbox" name="delete_image" class="h-4 w-4 rounded border-amber-300 text-rose-600 focus:ring-rose-500" />
+                                        <span>ลบภาพนี้</span>
+                                    </label>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div class="space-y-2">
+                                <label class="block text-sm font-semibold text-amber-900">ราคา</label>
+                                <input type="number" step="0.01" name="price" value="{% if page == 'edit_menu' %}{{ menu_item.price }}{% endif %}" required class="w-full rounded-3xl border border-amber-200 bg-white px-4 py-3 text-amber-900 shadow-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200" />
+                            </div>
+                            <div class="space-y-2">
+                                <label class="block text-sm font-semibold text-amber-900">หมวดหมู่</label>
+                                <select name="category_id" class="w-full rounded-3xl border border-amber-200 bg-white px-4 py-3 text-amber-900 shadow-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200">
+                                    <option value="">ไม่ระบุ</option>
+                                    {% for cat in categories %}
+                                        <option value="{{ cat.id }}" {% if page == 'edit_menu' and cat.id == menu_item.category_id %}selected{% endif %}>{{ cat.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <button type="submit" class="rounded-full bg-amber-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-amber-800">
+                            {% if page in ['add_category', 'add_menu'] %}บันทึก{% else %}อัปเดต{% endif %}
+                        </button>
+                        <a href="{{ url_for('home') }}" class="inline-flex justify-center rounded-full border border-amber-300 bg-white px-6 py-3 text-sm font-semibold text-amber-900 transition hover:bg-amber-50">Back to Home</a>
+                    </div>
+                </form>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>
