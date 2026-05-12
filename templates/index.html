@@ -185,8 +185,19 @@
                                 <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
                                     <div>
                                         <p class="text-lg font-semibold text-amber-950">{{ order.customer_name }}</p>
-                                        <p class="text-sm text-amber-600">สินค้า: {{ order.menu_name or 'ไม่ระบุ' }} x{{ order.quantity or 1 }}</p>
-                                        <p class="text-sm text-amber-600">พนักงาน: {{ order.employee_name or 'ไม่ระบุ' }}</p>
+                                        <div class="space-y-2">
+                                            <p class="text-sm text-amber-600">รายการสินค้า:</p>
+                                            {% if order_items.get(order.id) %}
+                                                <ul class="list-disc pl-5 text-sm text-amber-700">
+                                                    {% for item in order_items.get(order.id) %}
+                                                        <li>{{ item.menu_name or 'ไม่ระบุ' }} x{{ item.quantity }} = ฿{{ '%.2f'|format(item.price * item.quantity) }}</li>
+                                                    {% endfor %}
+                                                </ul>
+                                            {% else %}
+                                                <p class="text-sm text-amber-600">ยังไม่มีรายการสินค้า</p>
+                                            {% endif %}
+                                            <p class="text-sm text-amber-600">พนักงาน: {{ order.employee_name or 'ไม่ระบุ' }}</p>
+                                        </div>
                                     </div>
                                     <span class="rounded-full bg-amber-200 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-amber-800">{{ order.status }}</span>
                                 </div>
@@ -232,19 +243,30 @@
                             <input type="text" name="customer_name" required class="w-full rounded-3xl border border-amber-200 bg-white px-4 py-3 text-amber-900 shadow-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200" />
                         </div>
                         <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-amber-900">เลือกสินค้า</label>
-                            <select id="menu_id" name="menu_id" class="w-full rounded-3xl border border-amber-200 bg-white px-4 py-3 text-amber-900 shadow-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200">
-                                <option value="">เลือกจากเมนู</option>
-                                {% for item in menu_items %}
-                                    <option value="{{ item['id'] }}" data-price="{{ '%.2f'|format(item['price']) }}" {% if selected_menu_id and item['id'] == selected_menu_id %}selected{% endif %}>{{ item['name'] }} - ฿{{ '%.2f'|format(item['price']) }}</option>
-                                {% endfor %}
-                            </select>
+                            <label class="block text-sm font-semibold text-amber-900">รายการสินค้า</label>
+                            <div id="order_items" class="space-y-4">
+                                <div class="grid gap-4 sm:grid-cols-3 items-end order-item-row">
+                                    <div>
+                                        <label class="block text-sm font-semibold text-amber-900">สินค้า</label>
+                                        <select name="menu_id[]" class="order-menu-id w-full rounded-3xl border border-amber-200 bg-white px-4 py-3 text-amber-900 shadow-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200">
+                                            <option value="">เลือกเมนู</option>
+                                            {% for item in menu_items %}
+                                                <option value="{{ item['id'] }}" data-price="{{ '%.2f'|format(item['price']) }}">{{ item['name'] }} - ฿{{ '%.2f'|format(item['price']) }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-semibold text-amber-900">จำนวน</label>
+                                        <input type="number" name="quantity[]" value="1" min="1" class="order-quantity w-full rounded-3xl border border-amber-200 bg-white px-4 py-3 text-amber-900 shadow-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200" />
+                                    </div>
+                                    <div class="flex items-end">
+                                        <button type="button" class="remove-order-item inline-flex w-full items-center justify-center rounded-full bg-rose-100 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-200">ลบ</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <button id="add_order_item" type="button" class="inline-flex items-center justify-center rounded-full bg-amber-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-amber-700">เพิ่มรายการ</button>
                         </div>
                         <div class="grid gap-4 sm:grid-cols-2">
-                            <div class="space-y-2">
-                                <label class="block text-sm font-semibold text-amber-900">จำนวน</label>
-                                <input id="order_quantity" type="number" name="quantity" value="1" min="1" class="w-full rounded-3xl border border-amber-200 bg-white px-4 py-3 text-amber-900 shadow-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200" />
-                            </div>
                             <div class="space-y-2">
                                 <label class="block text-sm font-semibold text-amber-900">พนักงาน</label>
                                 <select name="employee_id" class="w-full rounded-3xl border border-amber-200 bg-white px-4 py-3 text-amber-900 shadow-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200">
@@ -254,10 +276,10 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                        </div>
-                        <div class="space-y-2">
-                            <label class="block text-sm font-semibold text-amber-900">ราคารวม</label>
-                            <input id="order_total" type="number" step="0.01" name="total" required readonly value="{% if selected_menu %}{{ '%.2f'|format(selected_menu['price']) }}{% endif %}" class="w-full rounded-3xl border border-amber-200 bg-white px-4 py-3 text-amber-900 shadow-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200" />
+                            <div class="space-y-2">
+                                <label class="block text-sm font-semibold text-amber-900">ราคารวม</label>
+                                <input id="order_total" type="number" step="0.01" name="total" required readonly value="0.00" class="w-full rounded-3xl border border-amber-200 bg-white px-4 py-3 text-amber-900 shadow-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200" />
+                            </div>
                         </div>
                     {% elif page in ['add_menu', 'edit_menu'] %}
                         <div class="space-y-2">
@@ -315,25 +337,89 @@
                 "{{ item['id'] }}": {{ '%.2f'|format(item['price']) }}{% if not loop.last %},{% endif %}
             {% endfor %}
         };
-        function updateOrderTotal() {
-            const menuSelect = document.getElementById('menu_id');
-            const quantityInput = document.getElementById('order_quantity');
+        const menuOptions = `
+            <option value="">เลือกเมนู</option>
+            {% for item in menu_items %}
+                <option value="{{ item['id'] }}" data-price="{{ '%.2f'|format(item['price']) }}">{{ item['name'] }} - ฿{{ '%.2f'|format(item['price']) }}</option>
+            {% endfor %}
+        `;
+
+        function recalcOrderTotal() {
+            const rows = document.querySelectorAll('.order-item-row');
             const totalInput = document.getElementById('order_total');
-            if (!menuSelect || !quantityInput || !totalInput) return;
-            const menuId = menuSelect.value;
-            const quantity = Number(quantityInput.value) || 1;
-            if (menuId && menuPrices[menuId] !== undefined) {
-                totalInput.value = (menuPrices[menuId] * quantity).toFixed(2);
-            } else {
-                totalInput.value = '0.00';
-            }
+            let total = 0;
+            rows.forEach(row => {
+                const menuSelect = row.querySelector('.order-menu-id');
+                const qtyInput = row.querySelector('.order-quantity');
+                if (!menuSelect || !qtyInput) return;
+                const menuId = menuSelect.value;
+                const quantity = Number(qtyInput.value) || 0;
+                if (menuId && menuPrices[menuId] !== undefined && quantity > 0) {
+                    total += menuPrices[menuId] * quantity;
+                }
+            });
+            totalInput.value = total.toFixed(2);
         }
+
+        function createOrderItemRow(selectedMenuId = '', selectedQty = 1) {
+            const row = document.createElement('div');
+            row.className = 'grid gap-4 sm:grid-cols-3 items-end order-item-row';
+            row.innerHTML = `
+                <div>
+                    <label class="block text-sm font-semibold text-amber-900">สินค้า</label>
+                    <select name="menu_id[]" class="order-menu-id w-full rounded-3xl border border-amber-200 bg-white px-4 py-3 text-amber-900 shadow-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200">
+                        ${menuOptions}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-amber-900">จำนวน</label>
+                    <input type="number" name="quantity[]" value="${selectedQty}" min="1" class="order-quantity w-full rounded-3xl border border-amber-200 bg-white px-4 py-3 text-amber-900 shadow-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-200" />
+                </div>
+                <div class="flex items-end">
+                    <button type="button" class="remove-order-item inline-flex w-full items-center justify-center rounded-full bg-rose-100 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-200">ลบ</button>
+                </div>
+            `;
+            if (selectedMenuId) {
+                row.querySelector('.order-menu-id').value = selectedMenuId;
+            }
+            row.querySelector('.order-menu-id').addEventListener('change', recalcOrderTotal);
+            row.querySelector('.order-quantity').addEventListener('input', recalcOrderTotal);
+            row.querySelector('.remove-order-item').addEventListener('click', () => {
+                row.remove();
+                recalcOrderTotal();
+            });
+            return row;
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
-            const menuSelect = document.getElementById('menu_id');
-            const quantityInput = document.getElementById('order_quantity');
-            if (menuSelect) menuSelect.addEventListener('change', updateOrderTotal);
-            if (quantityInput) quantityInput.addEventListener('input', updateOrderTotal);
-            updateOrderTotal();
+            const orderItemsContainer = document.getElementById('order_items');
+            const addItemButton = document.getElementById('add_order_item');
+            const initialRow = orderItemsContainer.querySelector('.order-item-row');
+            if (initialRow) {
+                const select = initialRow.querySelector('.order-menu-id');
+                const qtyInput = initialRow.querySelector('.order-quantity');
+                const removeButton = initialRow.querySelector('.remove-order-item');
+                select.addEventListener('change', recalcOrderTotal);
+                qtyInput.addEventListener('input', recalcOrderTotal);
+                removeButton.addEventListener('click', () => {
+                    initialRow.remove();
+                    recalcOrderTotal();
+                });
+            }
+            if (addItemButton) {
+                addItemButton.addEventListener('click', () => {
+                    const newRow = createOrderItemRow();
+                    orderItemsContainer.appendChild(newRow);
+                });
+            }
+            const selectedMenuId = '{{ selected_menu_id or "" }}';
+            if (selectedMenuId) {
+                const firstSelect = orderItemsContainer.querySelector('.order-menu-id');
+                if (firstSelect) {
+                    firstSelect.value = selectedMenuId;
+                }
+            }
+            recalcOrderTotal();
         });
     </script>
     {% endif %}
