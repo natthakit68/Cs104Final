@@ -264,5 +264,94 @@ def delete_menu(id):
     return redirect(url_for('home'))
 
 
+@app.route('/employees')
+def employees():
+    conn = get_db()
+    employees = conn.execute('SELECT * FROM employees ORDER BY name').fetchall()
+    conn.close()
+    return render_template('index.html', page='employees', employees=employees)
+
+
+@app.route('/add_employee', methods=['GET', 'POST'])
+def add_employee():
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        role = request.form.get('role', '').strip()
+        if name and role:
+            conn = get_db()
+            conn.execute('INSERT INTO employees (name, role) VALUES (?, ?)', (name, role))
+            conn.commit()
+            conn.close()
+            return redirect(url_for('employees'))
+    return render_template('index.html', page='add_employee')
+
+
+@app.route('/edit_employee/<int:id>', methods=['GET', 'POST'])
+def edit_employee(id):
+    conn = get_db()
+    employee = conn.execute('SELECT * FROM employees WHERE id = ?', (id,)).fetchone()
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        role = request.form.get('role', '').strip()
+        if name and role:
+            conn.execute('UPDATE employees SET name = ?, role = ? WHERE id = ?', (name, role, id))
+            conn.commit()
+            conn.close()
+            return redirect(url_for('employees'))
+    conn.close()
+    return render_template('index.html', page='edit_employee', employee=employee)
+
+
+@app.route('/delete_employee/<int:id>')
+def delete_employee(id):
+    conn = get_db()
+    conn.execute('DELETE FROM employees WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('employees'))
+
+
+@app.route('/orders')
+def orders():
+    conn = get_db()
+    orders = conn.execute('''
+        SELECT orders.*, employees.name AS employee_name
+        FROM orders
+        LEFT JOIN employees ON orders.employee_id = employees.id
+        ORDER BY orders.order_date DESC
+    ''').fetchall()
+    conn.close()
+    return render_template('index.html', page='orders', orders=orders)
+
+
+@app.route('/add_order', methods=['GET', 'POST'])
+def add_order():
+    conn = get_db()
+    employees = conn.execute('SELECT * FROM employees ORDER BY name').fetchall()
+    if request.method == 'POST':
+        customer_name = request.form.get('customer_name', '').strip()
+        employee_id = request.form.get('employee_id')
+        total = request.form.get('total', '0').strip() or '0'
+        if customer_name:
+            conn.execute(
+                'INSERT INTO orders (customer_name, employee_id, total, status) VALUES (?, ?, ?, ?)',
+                (customer_name, employee_id if employee_id else None, float(total), 'pending')
+            )
+            conn.commit()
+            conn.close()
+            return redirect(url_for('orders'))
+    conn.close()
+    return render_template('index.html', page='add_order', employees=employees)
+
+
+@app.route('/delete_order/<int:id>')
+def delete_order(id):
+    conn = get_db()
+    conn.execute('DELETE FROM orders WHERE id = ?', (id,))
+    conn.commit()
+    conn.close()
+    return redirect(url_for('orders'))
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
